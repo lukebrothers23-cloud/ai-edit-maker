@@ -115,29 +115,15 @@ app.post("/edit", upload.fields([{ name: "video" }, { name: "audio" }]), async (
 // --- New Feature: Recreate existing edit with new theme (placeholder) ---
 app.post("/recreate", upload.single("edit"), async (req, res) => {
   try {
-    const file = req.file.path;
-    const theme = req.body.theme;
-    const infoOut = path.join("output", `recreated-${Date.now()}.mp4`);
+    console.log("Received recreate request for theme:", req.body.theme);
+    console.log("File info:", req.file);
 
-    // simple placeholder: just duplicate + log theme
-    console.log("Recreate theme requested:", theme);
-
-    await new Promise((resolve, reject) => {
-      ffmpeg(file)
-        .outputOptions([
-          "-vf",
-          "fade=t=in:st=0:d=1,fade=t=out:st=4:d=1",
-        ])
-        .on("end", resolve)
-        .on("error", reject)
-        .save(infoOut);
+    // Temporary fake success
+    res.json({
+      output: "https://dummyimage.com/600x400/004b75/ffffff&text=Recreate+OK"
     });
-
-    res.json({ output: "/" + infoOut });
   } catch (e) {
     console.error(e);
     res.json({ error: "Recreate failed." });
   }
 });
-
-app.listen(5000, () => console.log("✅ AI Edit Maker running at http://localhost:5000"));
