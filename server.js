@@ -22,6 +22,9 @@ app.use("/output", express.static("output"));
 if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
 if (!fs.existsSync("output")) fs.mkdirSync("output");
 
+// -----------------------
+// FRONTEND (simple HTML)
+// -----------------------
 app.get("/", (req, res) => {
   res.send(`
 <!DOCTYPE html>
@@ -73,7 +76,6 @@ async function postForm(url, form, outputDiv){
       ? '<h3>Done!</h3><video controls src="'+data.output+'"></video>'
       : '<p style="color:red">'+(data.error||"Error")+'</p>';
 }
-
 document.getElementById("editForm").addEventListener("submit",e=>{
   e.preventDefault(); postForm("/edit", e.target, "output1");
 });
@@ -84,6 +86,11 @@ document.getElementById("recreateForm").addEventListener("submit",e=>{
 </body></html>`);
 });
 
+// -----------------------
+// BACKEND ROUTES
+// -----------------------
+
+// Create Edit (merge video + audio)
 app.post("/edit", upload.fields([{ name: "video" }, { name: "audio" }]), async (req, res) => {
   try {
     const vid = req.files["video"][0].path;
@@ -112,18 +119,34 @@ app.post("/edit", upload.fields([{ name: "video" }, { name: "audio" }]), async (
   }
 });
 
-// --- New Feature: Recreate existing edit with new theme (placeholder) ---
+// Recreate Edit (placeholder)
 app.post("/recreate", upload.single("edit"), async (req, res) => {
   try {
-    console.log("Received recreate request for theme:", req.body.theme);
-    console.log("File info:", req.file);
+    const file = req.file.path;
+    const theme = req.body.theme;
+    const infoOut = path.join("output", `recreated-${Date.now()}.mp4`);
 
-    // Temporary fake success
-    res.json({
-      output: "https://dummyimage.com/600x400/004b75/ffffff&text=Recreate+OK"
+    console.log("Recreate theme requested:", theme);
+
+    await new Promise((resolve, reject) => {
+      ffmpeg(file)
+        .outputOptions(["-vf", "fade=t=in:st=0:d=1,fade=t=out:st=4:d=1"])
+        .on("end", resolve)
+        .on("error", reject)
+        .save(infoOut);
     });
+
+    res.json({ output: "/" + infoOut });
   } catch (e) {
     console.error(e);
     res.json({ error: "Recreate failed." });
   }
+});
+
+// -----------------------
+// START SERVER
+// -----------------------
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`✅ AI Edit Maker running on port ${PORT}`);
 });
