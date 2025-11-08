@@ -146,7 +146,16 @@ app.post("/recreate", upload.single("edit"), async (req, res) => {
 // -----------------------
 // START SERVER
 // -----------------------
+// -----------------------
+// START SERVER
+// -----------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ AI Edit Maker running on port ${PORT}`);
-});
+
+try {
+  app.listen(PORT, () => {
+    console.log(`✅ AI Edit Maker running on port ${PORT}`);
+  });
+} catch (err) {
+  console.error("❌ Server failed to start:", err);
+  process.exit(1);
+}
