@@ -1,0 +1,97 @@
+// server.js
+import express from "express";
+import multer from "multer";
+import ffmpeg from "fluent-ffmpeg";
+import ffmpegPath from "ffmpeg-static";
+import cors from "cors";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+ffmpeg.setFfmpegPath(ffmpegPath);
+
+const app = express();
+app.use(cors());
+app.use(express.static(__dirname));
+
+const upload = multer({ dest: "uploads/" });
+app.use("/uploads", express.static("uploads"));
+app.use("/output", express.static("output"));
+if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
+if (!fs.existsSync("output")) fs.mkdirSync("output");
+
+app.get("/", (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI Edit Maker</title>
+<style>
+body{font-family:sans-serif;background:linear-gradient(135deg,#dff1ff,#aee1ff);
+margin:0;padding:2rem;text-align:center}
+h1{color:#004b75}
+form{background:white;padding:2rem;border-radius:1rem;max-width:400px;
+margin:2rem auto;box-shadow:0 0 10px rgba(0,0,0,.1)}
+input,button{margin:.5rem;width:100%}
+video{max-width:100%;border-radius:1rem;margin-top:1rem}
+</style>
+</head>
+<body>
+<h1>🎬 AI Edit Maker (Local)</h1>
+<form id="editForm" enctype="multipart/form-data">
+  <label>Video file:</label>
+  <input type="file" name="video" accept="video/*" required />
+  <label>Audio file:</label>
+  <input type="file" name="audio" accept="audio/*" required />
+  <button type="submit">Generate Edit</button>
+</form>
+<div id="output"></div>
+<script>
+document.getElementById("editForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const fd=new FormData(e.target);
+  const res=await fetch("/edit",{method:"POST",body:fd});
+  const data=await res.json();
+  document.getElementById("output").innerHTML=
+    data.output?'<h3>Done!</h3><video controls src="'+data.output+'"></video>':'<p style="color:red">'+data.error+'</p>';
+});
+</script>
+</body></html>`);
+});
+
+app.post("/edit", upload.fields([{ name: "video" }, { name: "audio" }]), async (req, res) => {
+  try {
+    const vid = req.files["video"][0].path;
+    const aud = req.files["audio"][0].path;
+    const out = path.join("output", `edit-${Date.now()}.mp4`);
+
+    await new Promise((resolve, reject) => {
+      ffmpeg(vid)
+        .input(aud)
+        .outputOptions([
+          "-shortest",
+          "-vf",
+          "fade=t=in:st=0:d=1,fade=t=out:st=4:d=1",
+          "-af",
+          "afade=t=in:st=0:d=1,afade=t=out:st=4:d=1",
+        ])
+        .on("end", resolve)
+        .on("error", reject)
+        .save(out);
+    });
+
+    res.json({ output: "/" + out });
+  } catch (e) {
+    console.error(e);
+    res.json({ error: "Processing failed." });
+  }
+});
+
+app.listen(5000, () =>
+  console.log("✅ AI Edit Maker running at http://localhost:5000")
+);
